@@ -32,6 +32,10 @@ import {
   executePause, executeResume,
   executeVolume, executeNowplaying, executeQueue,
 }                                                  from "../commands/music.js";
+// Protection
+import {
+  executeAutomod, executeLockdown, executeUnlockdown, executeRaidstatus,
+}                                                  from "../commands/protection.js";
 
 export const name = "interactionCreate";
 export const once = false;
@@ -89,6 +93,12 @@ export async function execute(interaction) {
       case "volume":       return executeVolume(interaction);
       case "nowplaying":   return executeNowplaying(interaction);
       case "queue":        return executeQueue(interaction);
+
+      // Protection
+      case "automod":      return executeAutomod(interaction);
+      case "lockdown":     return executeLockdown(interaction);
+      case "unlockdown":   return executeUnlockdown(interaction);
+      case "raidstatus":   return executeRaidstatus(interaction);
 
       default:
         return interaction.reply({

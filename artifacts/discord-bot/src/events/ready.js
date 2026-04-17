@@ -22,6 +22,9 @@ import {
   playData, skipData, stopData, pauseData, resumeData,
   volumeData, nowplayingData, queueData,
 }                                                        from "../commands/music.js";
+import {
+  automodData, lockdownData, unlockdownData, raidstatusData,
+}                                                        from "../commands/protection.js";
 
 export const name = "clientReady";
 export const once = true;
@@ -31,7 +34,7 @@ export async function execute(client) {
   console.log(`✦ ${client.guilds.cache.size} sunucuda aktif`);
 
   // Aktivite
-  client.user.setActivity("꒰🌸 aesthetic gaming ✦", { type: ActivityType.Watching });
+  client.user.setActivity("꒰🛡️ sunucunu koruyor ✦", { type: ActivityType.Watching });
 
   // Tüm slash komutları
   const commands = [
@@ -55,6 +58,8 @@ export async function execute(client) {
     playData, skipData, stopData,
     pauseData, resumeData,
     volumeData, nowplayingData, queueData,
+    // Protection
+    automodData, lockdownData, unlockdownData, raidstatusData,
   ].map((c) => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
