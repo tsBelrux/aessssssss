@@ -16,20 +16,49 @@ pnpm workspace monorepo using TypeScript. Includes a Discord bot (Aishivex) and 
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
-## Discord Bot — Aishivex (`artifacts/discord-bot`)
+## Discord Bot — Aishivex v3 (`artifacts/discord-bot`)
 
-Ultra aesthetic gaming community bot. discord.js v14.
+Ultra aesthetic gaming community bot. discord.js v14. **35 slash commands**.
 
 ### Features
-- **AI Chat** — `/ai <soru>` or `@Aishivex` mention, powered by Gemini 2.5 Flash (Replit AI Integrations)
-- **XP & Leveling** — chat + voice XP, level-up roles (Aktif Üye @5, Sadık Üye @15), `/level`, `/leaderboard`
-- **Reaction Roles** — `/setup-roles` in #rol-al: 🎯 Valorant, 🔫 CS2, ⛏️ Minecraft, 👑 LoL, 🚗 GTA RP, 🎵 Müzik Sever
-- **Music** — `/play`, `/skip`, `/stop`, `/queue` via @discordjs/voice + play-dl
-- **Moderation** — `/mute`, `/unmute`, `/clear` (staff only)
-- **Welcome** — aesthetic embed in #hoş-geldin on member join
-- **Keep-alive** — HTTP server on PORT for Replit uptime
 
-### Prefix: `!` | Slash: `/`
+**꒰🤖 AI Chat**
+- `/ai <soru>` or `@Aishivex <mention>` — Gemini 2.5 Flash (Replit AI Integrations)
+
+**꒰🏆 XP & Leveling**
+- Chat XP, voice XP, level-up roles (Aktif Üye @5, Sadık Üye @15)
+- `/level`, `/leaderboard`
+
+**꒰🎭 Reaction Roles**
+- `/setup-roles` → 🎯 Valorant, 🔫 CS2, ⛏️ Minecraft, 👑 LoL, 🚗 GTA RP, 🎵 Müzik Sever
+
+**꒰🎵 Music (FFmpeg Fixed)**
+- `/play`, `/skip`, `/stop`, `/pause`, `/resume`, `/volume`, `/nowplaying`, `/queue`
+- Uses `ffmpeg-static` + `StreamType.Arbitrary` — no silent audio bug
+- FFmpeg path set at startup via `createRequire` in both index.js and musicManager.js
+
+**꒰🔧 Full Moderation (14 commands)**
+- `/ban`, `/unban`, `/kick` — permanent actions
+- `/warn`, `/warnings`, `/clearwarns` — 3-strike auto-mute (30 min)
+- `/mute`, `/unmute` — Discord timeout
+- `/clear` — bulk delete up to 100 messages
+- `/slowmode` — 0–6h slowmode
+- `/lock`, `/unlock` — channel permissions
+- `/nickname` — change/reset member nickname
+- `/purge` — delete specific user's messages
+
+**꒰📊 General (9 commands)**
+- `/ping`, `/botinfo`, `/serverinfo`, `/userinfo`, `/avatar`
+- `/8ball`, `/coinflip`, `/poll`, `/announce`
+
+**꒰🌸 Welcome & Auto-Role**
+- Aesthetic embed in #hoş-geldin on member join
+- Auto-assigns "Yeni Üye" role on join
+
+**꒰🔄 Keep-alive**
+- HTTP server on PORT for Replit uptime
+
+### Prefix: `!` | Slash: `/` | AI: `@Aishivex`
 
 ### Required Secrets
 - `TOKEN` — Discord bot token
@@ -38,6 +67,7 @@ Ultra aesthetic gaming community bot. discord.js v14.
 ### Data Files
 - `src/data/xp.json` — XP & level data per guild/user
 - `src/data/reactionRoles.json` — reaction role message IDs per guild
+- `src/data/warnings.json` — warning records per guild/user
 
 ## Key Commands
 

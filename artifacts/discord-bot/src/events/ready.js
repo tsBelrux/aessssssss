@@ -1,14 +1,27 @@
 // ─────────────────────────────────────────────────────────────
 // Ready Event — Aishivex
-// Bot hazır olduğunda slash komutları global deploy et
+// Tüm slash komutlarını global olarak deploy et
 // ─────────────────────────────────────────────────────────────
 
 import { REST, Routes, ActivityType } from "discord.js";
-import { data as aiData }                              from "../commands/ai.js";
-import { data as levelData, lbData }                   from "../commands/level.js";
-import { data as setupRolesData }                      from "../commands/setupRoles.js";
-import { playData, skipData, stopData, queueData }     from "../commands/music.js";
-import { muteData, unmuteData, clearData }             from "../commands/mod.js";
+
+// ── Komut verileri import ─────────────────────────────────
+import { data as aiData }                                from "../commands/ai.js";
+import { data as levelData, lbData }                    from "../commands/level.js";
+import { data as setupRolesData }                       from "../commands/setupRoles.js";
+import {
+  pingData, botinfoData, serverinfoData, userinfoData,
+  avatarData, eightBallData, coinflipData, pollData, announceData,
+}                                                        from "../commands/general.js";
+import {
+  banData, unbanData, kickData, warnData, warningsData, clearwarnsData,
+  muteData, unmuteData, clearData, slowmodeData,
+  lockData, unlockData, nicknameData, purgeData,
+}                                                        from "../commands/mod.js";
+import {
+  playData, skipData, stopData, pauseData, resumeData,
+  volumeData, nowplayingData, queueData,
+}                                                        from "../commands/music.js";
 
 export const name = "clientReady";
 export const once = true;
@@ -17,22 +30,31 @@ export async function execute(client) {
   console.log(`✦ Aishivex online: ${client.user.tag}`);
   console.log(`✦ ${client.guilds.cache.size} sunucuda aktif`);
 
-  // Aktivite ayarla
-  client.user.setActivity("꒰🌸 aesthetic gaming", { type: ActivityType.Watching });
+  // Aktivite
+  client.user.setActivity("꒰🌸 aesthetic gaming ✦", { type: ActivityType.Watching });
 
-  // Slash komutlarını hazırla
+  // Tüm slash komutları
   const commands = [
+    // AI
     aiData,
-    levelData,
-    lbData,
+    // General
+    pingData, botinfoData, serverinfoData, userinfoData,
+    avatarData, eightBallData, coinflipData, pollData, announceData,
+    // Level
+    levelData, lbData,
+    // Reaction Roles
     setupRolesData,
-    playData,
-    skipData,
-    stopData,
-    queueData,
-    muteData,
-    unmuteData,
-    clearData,
+    // Moderation
+    banData, unbanData, kickData,
+    warnData, warningsData, clearwarnsData,
+    muteData, unmuteData,
+    clearData, slowmodeData,
+    lockData, unlockData,
+    nicknameData, purgeData,
+    // Music
+    playData, skipData, stopData,
+    pauseData, resumeData,
+    volumeData, nowplayingData, queueData,
   ].map((c) => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
@@ -41,6 +63,6 @@ export async function execute(client) {
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log(`✦ ${commands.length} slash komutu deploy edildi ✓`);
   } catch (err) {
-    console.error("Slash komut deploy hatası:", err.message);
+    console.error("Slash deploy hatası:", err.message);
   }
 }
