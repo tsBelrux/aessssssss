@@ -517,7 +517,7 @@ client.on("messageCreate", async (message) => {
 // ─────────────────────────────────────────────────────────────
 // Bot ready event
 // ─────────────────────────────────────────────────────────────
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`✦ Bot online: ${client.user.tag}`);
   console.log(`✦ Serving ${client.guilds.cache.size} guild(s)`);
   client.user.setActivity("꒰🌸・Ultra Aesthetic Server", { type: 3 }); // type 3 = Watching
