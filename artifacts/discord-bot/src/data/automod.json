@@ -1,0 +1,18 @@
+{
+  "1494755608224596192": {
+    "enabled": true,
+    "antiSpam": true,
+    "antiRaid": true,
+    "inviteFilter": true,
+    "mentionFilter": true,
+    "capsFilter": true,
+    "linkFilter": false,
+    "spamThreshold": 5,
+    "raidThreshold": 8,
+    "muteOnSpam": true,
+    "kickNewAccounts": false,
+    "minAccountAge": 7,
+    "logChannelId": "1494762126353498214",
+    "modChannelId": null
+  }
+}

@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// Aishivex — Ultra Aesthetic Gaming Community Discord Bot v3
-// discord.js v14 | Gemini AI | XP | Music | Full Mod
+// Aishivex — Ultra Aesthetic Gaming Community Discord Bot v4
+// discord.js v14 | Gemini AI | XP | Music | Full Mod | AutoMod
+// Anti-Raid | ModLog | Disboard Bump | Fun Commands
 // ═══════════════════════════════════════════════════════════════
 
 import http              from "http";
@@ -13,25 +14,23 @@ import {
 }                        from "discord.js";
 
 // ── FFmpeg PATH kurulumu (müzik için kritik!) ──────────────
-// @discordjs/voice FFmpeg'i PATH üzerinden bulur
-const _require    = createRequire(import.meta.url);
-const ffmpegPath  = _require("ffmpeg-static");
+const _require   = createRequire(import.meta.url);
+const ffmpegPath = _require("ffmpeg-static");
 if (ffmpegPath) {
-  const ffmpegDir = dirname(ffmpegPath);
-  process.env.PATH        = `${ffmpegDir}:${process.env.PATH ?? ""}`;
+  const dir = dirname(ffmpegPath);
+  process.env.PATH        = `${dir}:${process.env.PATH ?? ""}`;
   process.env.FFMPEG_PATH = ffmpegPath;
   console.log("✦ FFmpeg hazır:", ffmpegPath);
 } else {
   console.warn("⚠️  FFmpeg bulunamadı — müzik çalışmayabilir.");
 }
 
-// ── Token kontrolü ─────────────────────────────────────────
 if (!process.env.TOKEN) {
   console.error("❌ TOKEN bulunamadı! Replit Secrets'a TOKEN ekleyin.");
   process.exit(1);
 }
 
-// ── Discord Client (tüm intent'ler) ────────────────────────
+// ── Discord Client ──────────────────────────────────────────
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -58,7 +57,12 @@ async function loadEvents() {
     "./events/ready.js",
     "./events/interactionCreate.js",
     "./events/messageCreate.js",
+    "./events/messageDelete.js",
+    "./events/messageUpdate.js",
     "./events/guildMemberAdd.js",
+    "./events/guildMemberRemove.js",
+    "./events/guildBanAdd.js",
+    "./events/guildBanRemove.js",
     "./events/messageReactionAdd.js",
     "./events/messageReactionRemove.js",
     "./events/voiceStateUpdate.js",
@@ -68,38 +72,30 @@ async function loadEvents() {
     const event = await import(path);
     const { name, once, execute } = event;
     if (!name || !execute) continue;
-
-    if (once) {
-      client.once(name, (...args) => execute(...args, client));
-    } else {
-      client.on(name,   (...args) => execute(...args, client));
-    }
+    if (once) client.once(name, (...args) => execute(...args, client));
+    else       client.on(name,   (...args) => execute(...args, client));
     console.log(`✦ Event yüklendi: ${name}`);
   }
 }
 
-// ── Keep-alive HTTP (Replit uyku modunu engeller) ──────────
+// ── Keep-alive HTTP ─────────────────────────────────────────
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 http
   .createServer((_, res) => {
     res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("꒰🌸 Aishivex is alive! ✦");
+    res.end("꒰🌸 Aishivex v4 is alive! ✦");
   })
-  .listen(PORT, "0.0.0.0", () => {
-    console.log(`✦ Keep-alive sunucu: port ${PORT}`);
-  });
+  .listen(PORT, "0.0.0.0", () => console.log(`✦ Keep-alive sunucu: port ${PORT}`));
 
-// ── Hata yönetimi ──────────────────────────────────────────
-client.on("error",  (err) => console.error("Discord hatası:", err.message));
-client.on("warn",   (msg) => console.warn("Discord uyarı:", msg));
+// ── Hata yönetimi ───────────────────────────────────────────
+client.on("error", (err) => console.error("Discord hatası:", err.message));
 process.on("unhandledRejection", (err) => {
-  // play-dl AbortError gibi beklenen hataları gizle
   const msg = err?.message ?? String(err);
-  if (msg.includes("AbortError") || msg.includes("ERR_STREAM_DESTROYED")) return;
+  if (["AbortError", "ERR_STREAM_DESTROYED", "VOICE_CONNECTION_TIMEOUT"].some((k) => msg.includes(k))) return;
   console.error("Yakalanmayan hata:", msg);
 });
 
-// ── Başlat ────────────────────────────────────────────────
+// ── Başlat ──────────────────────────────────────────────────
 (async () => {
   await loadEvents();
   await client.login(process.env.TOKEN);

@@ -1,10 +1,10 @@
-// ─────────────────────────────────────────────────────────────
-// Music Queue Manager — Aishivex (FFmpeg FIXED)
-// Her sunucu için ayrı kuyruk; FFmpeg ile güvenilir oynatma
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// Music Queue Manager — Aishivex v3 (ytdl-core FIX)
+// @distube/ytdl-core kullanarak güvenilir ses akışı
+// ═══════════════════════════════════════════════════════════════
 
 import { createRequire } from "module";
-import { dirname } from "path";
+import { dirname }       from "path";
 import {
   createAudioPlayer,
   createAudioResource,
@@ -14,54 +14,50 @@ import {
   entersState,
   NoSubscriberBehavior,
   StreamType,
-} from "@discordjs/voice";
-import * as playDl from "play-dl";
+}                        from "@discordjs/voice";
+import ytdl              from "@distube/ytdl-core";
+import * as playDl       from "play-dl";
 
-// ── FFmpeg yolunu PATH'e ekle / Add FFmpeg binary to PATH ──
-const require = createRequire(import.meta.url);
-const ffmpegPath = require("ffmpeg-static");
+// ── FFmpeg yolunu PATH'e ekle ──────────────────────────────
+const _require    = createRequire(import.meta.url);
+const ffmpegPath  = _require("ffmpeg-static");
 if (ffmpegPath) {
-  const ffmpegDir = dirname(ffmpegPath);
-  process.env.PATH = `${ffmpegDir}:${process.env.PATH ?? ""}`;
+  const dir = dirname(ffmpegPath);
+  process.env.PATH        = `${dir}:${process.env.PATH ?? ""}`;
   process.env.FFMPEG_PATH = ffmpegPath;
-  console.log("✦ FFmpeg yüklendi:", ffmpegPath);
-} else {
-  console.warn("⚠️  FFmpeg bulunamadı — müzik çalışmayabilir!");
+  console.log("✦ MusicManager FFmpeg:", ffmpegPath);
 }
 
-// Guild ID → MusicQueue map
+// Guild ID → MusicQueue
 const queues = new Map();
 
 export class MusicQueue {
   constructor(guild, textChannel, voiceChannel, connection) {
-    this.guild       = guild;
-    this.textChannel = textChannel;
+    this.guild        = guild;
+    this.textChannel  = textChannel;
     this.voiceChannel = voiceChannel;
-    this.connection  = connection;
-    this.songs       = [];
-    this.currentSong = null;
-    this.volume      = 1.0;
-    this.paused      = false;
+    this.connection   = connection;
+    this.songs        = [];
+    this.currentSong  = null;
+    this.volume       = 0.5;
+    this.paused       = false;
 
     this.player = createAudioPlayer({
       behaviors: { noSubscriber: NoSubscriberBehavior.Pause },
     });
-
     this.connection.subscribe(this.player);
 
-    // Şarkı bitince sıradakini çal
     this.player.on(AudioPlayerStatus.Idle, () => {
       if (this.songs.length > 0) this.songs.shift();
       this._play();
     });
 
     this.player.on("error", (err) => {
-      console.error("Oynatıcı hatası:", err.message);
+      console.error("[Music] Oynatıcı hatası:", err.message);
       if (this.songs.length > 0) this.songs.shift();
-      this._play();
+      setTimeout(() => this._play(), 1000);
     });
 
-    // Bağlantı kopunca temizle
     this.connection.on(VoiceConnectionStatus.Disconnected, async () => {
       try {
         await Promise.race([
@@ -74,29 +70,29 @@ export class MusicQueue {
     });
   }
 
-  // ── Şarkı ara ve kuyruğa ekle ────────────────────────────
+  // ── Şarkı ara ve kuyruğa ekle ──────────────────────────
   async addSong(query, requestedBy) {
     try {
       let songInfo;
 
-      if (playDl.yt_validate(query) === "video") {
-        // Direkt URL
-        const info = await playDl.video_info(query);
-        const d    = info.video_details;
+      // YouTube URL mi?
+      if (/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)/.test(query)) {
+        const info = await ytdl.getInfo(query);
+        const d    = info.videoDetails;
         songInfo = {
           title:       d.title ?? "Bilinmeyen Şarkı",
-          url:         d.url,
-          duration:    d.durationInSec ?? 0,
-          thumbnail:   d.thumbnails?.[0]?.url ?? null,
+          url:         d.video_url,
+          duration:    parseInt(d.lengthSeconds) || 0,
+          thumbnail:   d.thumbnails?.at(-1)?.url ?? null,
           requestedBy,
         };
       } else {
-        // Arama
+        // play-dl ile YouTube araması
         const results = await playDl.search(query, {
           source: { youtube: "video" },
           limit: 1,
         });
-        if (!results.length) return null;
+        if (!results?.length) return null;
         const v = results[0];
         songInfo = {
           title:       v.title ?? "Bilinmeyen Şarkı",
@@ -108,86 +104,76 @@ export class MusicQueue {
       }
 
       this.songs.push(songInfo);
-      // İlk şarkıysa hemen çal
       if (this.songs.length === 1) await this._play();
       return songInfo;
     } catch (err) {
-      console.error("Şarkı arama hatası:", err.message);
+      console.error("[Music] Şarkı arama hatası:", err.message);
       return null;
     }
   }
 
-  // ── İç oynatma metodu / Internal play ────────────────────
+  // ── İç oynatma metodu ──────────────────────────────────
   async _play() {
-    if (!this.songs.length) {
-      this.currentSong = null;
-      return;
-    }
+    if (!this.songs.length) { this.currentSong = null; return; }
 
     const song = this.songs[0];
     this.currentSong = song;
 
     try {
-      const stream = await playDl.stream(song.url, { quality: 2 });
-
-      // StreamType.Arbitrary → FFmpeg tarafından Opus'a dönüştürülür
-      // Bu yaklaşım opusscript bağımsız çalışır ve en güvenilir yöntemdir
-      const resource = createAudioResource(stream.stream, {
-        inputType: StreamType.Arbitrary,
-        inlineVolume: true,
+      // @distube/ytdl-core ile ses akışı — çok daha güvenilir
+      const stream = ytdl(song.url, {
+        filter:          "audioonly",
+        quality:         "highestaudio",
+        highWaterMark:   1 << 25, // 32 MB buffer
+        requestOptions:  {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          },
+        },
       });
 
+      stream.on("error", (err) => {
+        console.error("[Music] Stream hatası:", err.message);
+        if (this.songs.length > 0) this.songs.shift();
+        setTimeout(() => this._play(), 1000);
+      });
+
+      // StreamType.Arbitrary → FFmpeg ile PCM→Opus dönüşümü
+      const resource = createAudioResource(stream, {
+        inputType:    StreamType.Arbitrary,
+        inlineVolume: true,
+      });
       resource.volume?.setVolume(this.volume);
+
       this.player.play(resource);
       this.paused = false;
-      console.log(`♪ Çalıyor: ${song.title}`);
+      console.log(`[Music] ♪ Çalıyor: ${song.title}`);
     } catch (err) {
-      console.error("Oynatma başlatma hatası:", err.message);
+      console.error("[Music] Oynatma başlatma hatası:", err.message);
       if (this.songs.length > 0) this.songs.shift();
-      await this._play();
+      setTimeout(() => this._play(), 1500);
     }
   }
 
-  // ── Skip ──────────────────────────────────────────────────
-  skip() {
-    if (this.songs.length === 0) return false;
-    this.player.stop(true);
-    return true;
-  }
+  skip()    { if (!this.songs.length) return false; this.player.stop(true); return true; }
+  pause()   { if (this.paused) return false; this.player.pause();   this.paused = true;  return true; }
+  resume()  { if (!this.paused) return false; this.player.unpause(); this.paused = false; return true; }
 
-  // ── Pause / Resume ────────────────────────────────────────
-  pause() {
-    if (this.paused) return false;
-    this.player.pause();
-    this.paused = true;
-    return true;
-  }
-
-  resume() {
-    if (!this.paused) return false;
-    this.player.unpause();
-    this.paused = false;
-    return true;
-  }
-
-  // ── Volume ────────────────────────────────────────────────
   setVolume(vol) {
     this.volume = Math.max(0, Math.min(2, vol));
     const res = this.player.state?.resource;
     if (res?.volume) res.volume.setVolume(this.volume);
   }
 
-  // ── Destroy ───────────────────────────────────────────────
   destroy() {
-    this.songs = [];
-    this.currentSong = null;
+    this.songs = []; this.currentSong = null;
     this.player.stop(true);
     try { this.connection.destroy(); } catch {}
     queues.delete(this.guild.id);
   }
 }
 
-// ── Factory fonksiyonları ─────────────────────────────────
+// ── Factory ────────────────────────────────────────────────
 export function getQueue(guildId) { return queues.get(guildId) ?? null; }
 
 export async function createQueue(guild, textChannel, voiceChannel) {
@@ -196,13 +182,11 @@ export async function createQueue(guild, textChannel, voiceChannel) {
     guildId:        guild.id,
     adapterCreator: guild.voiceAdapterCreator,
   });
-
   const queue = new MusicQueue(guild, textChannel, voiceChannel, connection);
   queues.set(guild.id, queue);
   return queue;
 }
 
-// ── Süre formatı / Duration formatter ─────────────────────
 export function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return "∞";
   const h = Math.floor(seconds / 3600);

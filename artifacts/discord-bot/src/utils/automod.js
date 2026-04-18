@@ -18,7 +18,7 @@ const DEFAULTS = {
   antiRaid:       true,
   inviteFilter:   true,
   mentionFilter:  true,
-  capsFilter:     true,
+  capsFilter:     false,   // Büyük harf filtresi varsayılan KAPALI
   linkFilter:     false,
   spamThreshold:  5,         // X mesaj / 5 saniyede spam
   raidThreshold:  8,         // X katılım / 20 saniyede raid

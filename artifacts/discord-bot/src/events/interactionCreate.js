@@ -1,23 +1,17 @@
 // ─────────────────────────────────────────────────────────────
 // Interaction Create — Aishivex
-// Tüm slash komutlarını yönetir
+// Tüm slash komutları + button interactions
 // ─────────────────────────────────────────────────────────────
 
 import { buildEmbed, COLORS } from "../utils/embed.js";
-
-// AI
 import { execute as executeAI }                    from "../commands/ai.js";
-// General
 import {
   executePing, executeBotinfo, executeServerinfo,
   executeUserinfo, executeAvatar, executeEightBall,
   executeCoinflip, executePoll, executeAnnounce,
 }                                                  from "../commands/general.js";
-// Level
 import { execute as executeLevel, executeLb }      from "../commands/level.js";
-// Roles
 import { execute as executeSetupRoles }            from "../commands/setupRoles.js";
-// Mod
 import {
   executeBan, executeUnban, executeKick,
   executeWarn, executeWarnings, executeClearwarns,
@@ -26,16 +20,19 @@ import {
   executeLock, executeUnlock,
   executeNickname, executePurge,
 }                                                  from "../commands/mod.js";
-// Music
 import {
   executePlay, executeSkip, executeStop,
   executePause, executeResume,
   executeVolume, executeNowplaying, executeQueue,
 }                                                  from "../commands/music.js";
-// Protection
 import {
   executeAutomod, executeLockdown, executeUnlockdown, executeRaidstatus,
 }                                                  from "../commands/protection.js";
+import {
+  executeRps, executeLove, executeShip, executeMock, executeReverse,
+  executeDice, executeChoose, executeTrivia, executeKelime,
+  executeFact, executeRate, executeBumpdurum,
+}                                                  from "../commands/fun.js";
 
 export const name = "interactionCreate";
 export const once = false;
@@ -47,10 +44,7 @@ export async function execute(interaction) {
 
   try {
     switch (cmd) {
-      // AI
       case "ai":           return executeAI(interaction, interaction.options.getString("soru"));
-
-      // General
       case "ping":         return executePing(interaction);
       case "botinfo":      return executeBotinfo(interaction);
       case "serverinfo":   return executeServerinfo(interaction);
@@ -60,15 +54,9 @@ export async function execute(interaction) {
       case "coinflip":     return executeCoinflip(interaction);
       case "poll":         return executePoll(interaction);
       case "announce":     return executeAnnounce(interaction);
-
-      // Level
       case "level":        return executeLevel(interaction);
       case "leaderboard":  return executeLb(interaction);
-
-      // Reaction Roles
       case "setup-roles":  return executeSetupRoles(interaction);
-
-      // Moderation
       case "ban":          return executeBan(interaction);
       case "unban":        return executeUnban(interaction);
       case "kick":         return executeKick(interaction);
@@ -83,8 +71,6 @@ export async function execute(interaction) {
       case "unlock":       return executeUnlock(interaction);
       case "nickname":     return executeNickname(interaction);
       case "purge":        return executePurge(interaction);
-
-      // Music
       case "play":         return executePlay(interaction);
       case "skip":         return executeSkip(interaction);
       case "stop":         return executeStop(interaction);
@@ -93,18 +79,25 @@ export async function execute(interaction) {
       case "volume":       return executeVolume(interaction);
       case "nowplaying":   return executeNowplaying(interaction);
       case "queue":        return executeQueue(interaction);
-
-      // Protection
       case "automod":      return executeAutomod(interaction);
       case "lockdown":     return executeLockdown(interaction);
       case "unlockdown":   return executeUnlockdown(interaction);
       case "raidstatus":   return executeRaidstatus(interaction);
-
+      // Fun
+      case "rps":          return executeRps(interaction);
+      case "love":         return executeLove(interaction);
+      case "ship":         return executeShip(interaction);
+      case "mock":         return executeMock(interaction);
+      case "reverse":      return executeReverse(interaction);
+      case "dice":         return executeDice(interaction);
+      case "choose":       return executeChoose(interaction);
+      case "trivia":       return executeTrivia(interaction);
+      case "kelime-baslat":return executeKelime(interaction);
+      case "fact":         return executeFact(interaction);
+      case "rate":         return executeRate(interaction);
+      case "bumpdurum":    return executeBumpdurum(interaction);
       default:
-        return interaction.reply({
-          embeds: [buildEmbed({ title: "❓", description: "Bilinmeyen komut 🌸", color: COLORS.gray })],
-          ephemeral: true,
-        });
+        return interaction.reply({ embeds: [buildEmbed({ title: "❓", description: "Bilinmeyen komut 🌸", color: COLORS.gray })], ephemeral: true });
     }
   } catch (err) {
     console.error(`Slash hata (${cmd}):`, err);

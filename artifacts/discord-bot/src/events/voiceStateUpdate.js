@@ -4,6 +4,8 @@
 // ─────────────────────────────────────────────────────────────
 
 import { startVoiceXP, stopVoiceXP, getRoleForLevel } from "../utils/xp.js";
+import { logVoiceMove } from "../utils/modlog.js";
+import { getQueue }     from "../utils/musicManager.js";
 
 export const name = "voiceStateUpdate";
 export const once = false;
@@ -13,7 +15,23 @@ export async function execute(oldState, newState) {
   const guildId = newState.guild.id;
 
   // Bot yoksay
-  if (newState.member?.user?.bot) return;
+  if (newState.member?.user?.bot) {
+    // Müzik botu boş kaldıysa durdur
+    if (oldState.channelId) {
+      const queue = getQueue(guildId);
+      if (queue) {
+        const members = oldState.channel?.members?.filter((m) => !m.user.bot) ?? new Map();
+        if (members.size === 0) {
+          queue.destroy();
+          queue.textChannel?.send("꒰🎵 Ses kanalı boşaldı, müzik durduruldu 🌸").catch(() => {});
+        }
+      }
+    }
+    return;
+  }
+
+  // Ses kanalı log
+  logVoiceMove(oldState, newState).catch(() => {});
 
   // Ses kanalına katıldı (önceden yoktu, şimdi var)
   if (!oldState.channelId && newState.channelId) {
