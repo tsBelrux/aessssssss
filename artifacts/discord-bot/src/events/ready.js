@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { REST, Routes, ActivityType } from "discord.js";
+import { initSoundCloud }             from "../utils/musicManager.js";
 
 import { data as aiData }                                from "../commands/ai.js";
 import { data as levelData, lbData }                    from "../commands/level.js";
@@ -35,6 +36,8 @@ export const once = true;
 
 export async function execute(client) {
   console.log(`✦ Aishivex online: ${client.user.tag}`);
+  // SoundCloud müzik token'ı hazırla
+  await initSoundCloud().catch((e) => console.warn("SC init:", e.message));
   console.log(`✦ ${client.guilds.cache.size} sunucuda aktif`);
 
   // Dönen aktiviteler

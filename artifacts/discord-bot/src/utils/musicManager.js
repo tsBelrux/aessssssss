@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// Music Queue Manager — Aishivex v3 (ytdl-core FIX)
-// @distube/ytdl-core kullanarak güvenilir ses akışı
+// Music Queue Manager — Aishivex v4
+// Ses kaynağı: SoundCloud (play-dl) — Replit'te çalışır ✓
+// YouTube URL girilirse → başlık çıkar → SoundCloud'da ara
 // ═══════════════════════════════════════════════════════════════
 
 import { createRequire } from "module";
@@ -15,12 +16,11 @@ import {
   NoSubscriberBehavior,
   StreamType,
 }                        from "@discordjs/voice";
-import ytdl              from "@distube/ytdl-core";
 import * as playDl       from "play-dl";
 
-// ── FFmpeg yolunu PATH'e ekle ──────────────────────────────
-const _require    = createRequire(import.meta.url);
-const ffmpegPath  = _require("ffmpeg-static");
+// ── FFmpeg PATH (SoundCloud arbitrary stream için gerekli) ─
+const _require   = createRequire(import.meta.url);
+const ffmpegPath = _require("ffmpeg-static");
 if (ffmpegPath) {
   const dir = dirname(ffmpegPath);
   process.env.PATH        = `${dir}:${process.env.PATH ?? ""}`;
@@ -28,8 +28,42 @@ if (ffmpegPath) {
   console.log("✦ MusicManager FFmpeg:", ffmpegPath);
 }
 
+// ── SoundCloud token başlat (startup'ta bir kez) ───────────
+let scReady = false;
+export async function initSoundCloud() {
+  if (scReady) return;
+  try {
+    const clientId = await playDl.getFreeClientID();
+    if (clientId) {
+      await playDl.setToken({ soundcloud: { client_id: clientId } });
+      scReady = true;
+      console.log("✦ SoundCloud token hazır ✓");
+    }
+  } catch (e) {
+    console.warn("[Music] SoundCloud token alınamadı:", e.message);
+  }
+}
+
 // Guild ID → MusicQueue
 const queues = new Map();
+
+// ── YouTube URL → başlık çıkar ─────────────────────────────
+const YT_REGEX = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)/;
+
+async function resolveSearchQuery(query) {
+  // YouTube URL ise → video_info ile başlığı al, SoundCloud'da ara
+  if (YT_REGEX.test(query)) {
+    try {
+      const info = await playDl.video_info(query);
+      const title = info.video_details?.title;
+      console.log(`[Music] YouTube URL → başlık: "${title}" → SoundCloud'da aranıyor`);
+      return { searchQuery: title, ytTitle: title, ytUrl: query };
+    } catch {
+      // video_info başarısızsa URL'yi düz metin olarak kullan
+    }
+  }
+  return { searchQuery: query, ytTitle: null, ytUrl: null };
+}
 
 export class MusicQueue {
   constructor(guild, textChannel, voiceChannel, connection) {
@@ -55,7 +89,7 @@ export class MusicQueue {
     this.player.on("error", (err) => {
       console.error("[Music] Oynatıcı hatası:", err.message);
       if (this.songs.length > 0) this.songs.shift();
-      setTimeout(() => this._play(), 1000);
+      setTimeout(() => this._play(), 1500);
     });
 
     this.connection.on(VoiceConnectionStatus.Disconnected, async () => {
@@ -70,99 +104,82 @@ export class MusicQueue {
     });
   }
 
-  // ── Şarkı ara ve kuyruğa ekle ──────────────────────────
+  // ── Şarkı ara + kuyruğa ekle ───────────────────────────
   async addSong(query, requestedBy) {
-    try {
-      let songInfo;
+    await initSoundCloud();
 
-      // YouTube URL mi?
-      if (/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)/.test(query)) {
-        const info = await ytdl.getInfo(query);
-        const d    = info.videoDetails;
-        songInfo = {
-          title:       d.title ?? "Bilinmeyen Şarkı",
-          url:         d.video_url,
-          duration:    parseInt(d.lengthSeconds) || 0,
-          thumbnail:   d.thumbnails?.at(-1)?.url ?? null,
-          requestedBy,
-        };
-      } else {
-        // play-dl ile YouTube araması
-        const results = await playDl.search(query, {
-          source: { youtube: "video" },
-          limit: 1,
-        });
-        if (!results?.length) return null;
-        const v = results[0];
-        songInfo = {
-          title:       v.title ?? "Bilinmeyen Şarkı",
-          url:         v.url,
-          duration:    v.durationInSec ?? 0,
-          thumbnail:   v.thumbnails?.[0]?.url ?? null,
-          requestedBy,
-        };
+    const { searchQuery, ytTitle, ytUrl } = await resolveSearchQuery(query);
+
+    // SoundCloud'da ara
+    try {
+      const results = await playDl.search(searchQuery, {
+        source: { soundcloud: "tracks" },
+        limit: 1,
+      });
+
+      if (!results?.length) {
+        console.warn("[Music] SoundCloud'da bulunamadı:", searchQuery);
+        return null;
       }
 
-      this.songs.push(songInfo);
+      const track = results[0];
+      const info = {
+        title:     ytTitle ? `${ytTitle}` : (track.name ?? "Bilinmeyen Şarkı"),
+        url:       track.url,
+        scUrl:     track.url,
+        duration:  track.durationInMs ? Math.floor(track.durationInMs / 1000) : 0,
+        thumbnail: track.thumbnail ?? null,
+        requestedBy,
+        source:    "SoundCloud",
+      };
+
+      this.songs.push(info);
       if (this.songs.length === 1) await this._play();
-      return songInfo;
+      return info;
     } catch (err) {
       console.error("[Music] Şarkı arama hatası:", err.message);
       return null;
     }
   }
 
-  // ── İç oynatma metodu ──────────────────────────────────
+  // ── Oynatma — SoundCloud stream ────────────────────────
   async _play() {
     if (!this.songs.length) { this.currentSong = null; return; }
-
     const song = this.songs[0];
     this.currentSong = song;
 
     try {
-      // @distube/ytdl-core ile ses akışı — çok daha güvenilir
-      const stream = ytdl(song.url, {
-        filter:          "audioonly",
-        quality:         "highestaudio",
-        highWaterMark:   1 << 25, // 32 MB buffer
-        requestOptions:  {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          },
-        },
-      });
+      await initSoundCloud();
 
-      stream.on("error", (err) => {
-        console.error("[Music] Stream hatası:", err.message);
-        if (this.songs.length > 0) this.songs.shift();
-        setTimeout(() => this._play(), 1000);
-      });
+      // SoundCloud stream aç
+      const stream = await playDl.stream(song.scUrl ?? song.url);
+      console.log(`[Music] ♪ Çalıyor: ${song.title} [${stream.type}]`);
 
-      // StreamType.Arbitrary → FFmpeg ile PCM→Opus dönüşümü
-      const resource = createAudioResource(stream, {
-        inputType:    StreamType.Arbitrary,
+      // SoundCloud → arbitrary → FFmpeg ile Opus'a çevir
+      const resource = createAudioResource(stream.stream, {
+        inputType:    stream.type,
         inlineVolume: true,
       });
       resource.volume?.setVolume(this.volume);
 
       this.player.play(resource);
       this.paused = false;
-      console.log(`[Music] ♪ Çalıyor: ${song.title}`);
     } catch (err) {
-      console.error("[Music] Oynatma başlatma hatası:", err.message);
+      console.error("[Music] Stream açma hatası:", err.message);
       if (this.songs.length > 0) this.songs.shift();
-      setTimeout(() => this._play(), 1500);
+      if (this.songs.length > 0) setTimeout(() => this._play(), 1500);
+      else this.currentSong = null;
     }
   }
 
-  skip()    { if (!this.songs.length) return false; this.player.stop(true); return true; }
-  pause()   { if (this.paused) return false; this.player.pause();   this.paused = true;  return true; }
-  resume()  { if (!this.paused) return false; this.player.unpause(); this.paused = false; return true; }
+  skip()   { if (!this.songs.length) return false; this.player.stop(true); return true; }
+  pause()  { if (this.paused) return false; this.player.pause();   this.paused = true;  return true; }
+  resume() { if (!this.paused) return false; this.player.unpause(); this.paused = false; return true; }
 
   setVolume(vol) {
     this.volume = Math.max(0, Math.min(2, vol));
-    const res = this.player.state?.resource;
-    if (res?.volume) res.volume.setVolume(this.volume);
+    const resource = this.player.state?.resource;
+    if (resource?.volume) resource.volume.setVolume(this.volume);
   }
 
   destroy() {
@@ -173,7 +190,7 @@ export class MusicQueue {
   }
 }
 
-// ── Factory ────────────────────────────────────────────────
+// ── Factory ─────────────────────────────────────────────────
 export function getQueue(guildId) { return queues.get(guildId) ?? null; }
 
 export async function createQueue(guild, textChannel, voiceChannel) {
@@ -181,6 +198,7 @@ export async function createQueue(guild, textChannel, voiceChannel) {
     channelId:      voiceChannel.id,
     guildId:        guild.id,
     adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf:       true,
   });
   const queue = new MusicQueue(guild, textChannel, voiceChannel, connection);
   queues.set(guild.id, queue);
